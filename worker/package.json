@@ -1,0 +1,14 @@
+{
+  "name": "nuclear-rag-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker RAG Backend for Nuclear Law",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

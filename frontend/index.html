@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nuclear Law Assistant ⚛️</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Marked.js for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar / Drawer for Workspace Documents -->
+    <aside class="documents-sidebar" id="docSidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">
+          <span class="icon">📁</span>
+          <h3>Workspace Documents</h3>
+        </div>
+        <button id="closeSidebarBtn" class="btn-icon-sm" title="Close Sidebar">✕</button>
+      </div>
+
+      <div class="workspace-card">
+        <div class="ws-info">
+          <span class="ws-label">Current Workspace:</span>
+          <span class="ws-name" id="displayWorkspaceName">default</span>
+        </div>
+        <button id="switchWorkspaceBtn" class="btn-secondary-sm">Switch / New</button>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-section">
+        <h4>Upload Nuclear PDF</h4>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+          <div class="dropzone-content">
+            <span class="upload-icon">📄</span>
+            <p><strong>Click to upload</strong> or drag PDF here</p>
+            <span class="file-hint">Nuclear Law & Radiation Safety documents only</span>
+          </div>
+        </div>
+
+        <!-- Verification / Progress Banner -->
+        <div class="upload-status-card" id="uploadStatusCard" style="display: none;">
+          <div class="status-header">
+            <span class="spinner" id="statusSpinner"></span>
+            <span class="status-title" id="statusTitle">Scanning Document...</span>
+          </div>
+          <p class="status-desc" id="statusDesc">Verifying document belongs to Nuclear Law domain...</p>
+        </div>
+      </div>
+
+      <!-- Documents List -->
+      <div class="documents-list-section">
+        <div class="docs-header">
+          <h4>Active Documents</h4>
+          <span class="badge" id="docCountBadge">0</span>
+        </div>
+        <div class="docs-list" id="docsList">
+          <div class="empty-docs">No custom documents uploaded yet in this workspace.</div>
+        </div>
+      </div>
+
+      <!-- Baseline Toggle -->
+      <div class="baseline-toggle-section">
+        <label class="toggle-container">
+          <input type="checkbox" id="includeBaseHandbook" checked>
+          <span class="checkmark"></span>
+          <span class="toggle-text">Include Baseline IAEA Handbook</span>
+        </label>
+      </div>
+    </aside>
+
+    <!-- Main Chat Window -->
+    <div class="chat-main">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <button id="openSidebarBtn" class="btn-icon" title="Toggle Documents Sidebar">
+            <span>📁</span>
+            <span class="btn-label">Documents</span>
+            <span class="badge-mini" id="headerDocBadge">0</span>
+          </button>
+          <div class="brand">
+            <div class="logo-icon">⚛️</div>
+            <div class="brand-text">
+              <h1>Nuclear Law Assistant</h1>
+              <p class="subtitle" id="activeWorkspaceBadge">Workspace: <strong>default</strong></p>
+            </div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="themeToggle" class="btn-icon" title="Toggle Dark/Light Mode">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Chat Viewport -->
+      <main class="chat-viewport" id="chatViewport">
+        <!-- Welcome Card -->
+        <div class="welcome-card" id="welcomeCard">
+          <div class="welcome-icon">📖</div>
+          <h2>Nuclear Regulatory Knowledge Base</h2>
+          <p>Ask legal and regulatory questions. You can upload custom Nuclear Law PDFs via the <strong>Documents</strong> sidebar or query the foundational IAEA Handbook.</p>
+          
+          <!-- Suggested Question Chips -->
+          <div class="chips-container">
+            <span class="chips-title">Suggested Questions:</span>
+            <button class="chip-btn" data-question="What are the main objectives of nuclear law?">
+              🎯 Main objectives of nuclear law
+            </button>
+            <button class="chip-btn" data-question="What are the primary responsibilities of the regulatory body?">
+              🏛️ Role of regulatory body
+            </button>
+            <button class="chip-btn" data-question="Explain the permission principle in nuclear regulation.">
+              📜 The permission principle
+            </button>
+            <button class="chip-btn" data-question="What are the basic principles of radioactive waste management?">
+              ☢️ Radioactive waste principles
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages Stream -->
+        <div class="messages-list" id="messagesList"></div>
+
+        <!-- Loading / Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+          <div class="typing-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="typing-text">Searching workspace documents & consulting LLM...</span>
+          </div>
+        </div>
+      </main>
+
+      <!-- Input Footer -->
+      <footer class="chat-footer">
+        <form id="chatForm" class="chat-form">
+          <textarea 
+            id="userInput" 
+            placeholder="Ask a question grounded in your workspace documents..." 
+            rows="1" 
+            required
+          ></textarea>
+          <button type="submit" id="sendBtn" class="btn-send" title="Send Question">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+        <div class="disclaimer">
+          Domain-verified RAG. Grounded in uploaded PDFs & IAEA Nuclear Law Handbook.
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Workspace Modal -->
+  <div class="modal-overlay" id="workspaceModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Switch or Create Workspace</h3>
+        <button id="closeModalBtn" class="btn-icon-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Each workspace has its own isolated documents and database. Choose a workspace name (e.g. <code>mai</code>, <code>research_group</code>):</p>
+        <div class="input-group">
+          <input type="text" id="newWorkspaceInput" placeholder="Enter workspace name..." maxlength="30">
+          <button id="confirmWorkspaceBtn" class="btn-primary">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

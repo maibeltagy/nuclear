@@ -1,0 +1,7 @@
+name = "nuclear-rag-worker"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+DEFAULT_PROVIDER = "groq"
