@@ -187,15 +187,21 @@ async function handleFileUpload(file) {
       body: formData
     });
 
-    const data = await resp.json();
+    const textResp = await resp.text();
+    let data = {};
+    try {
+      data = textResp ? JSON.parse(textResp) : {};
+    } catch (e) {
+      throw new Error(`Server returned status ${resp.status} (${resp.statusText || "Empty or invalid response"}). Ensure backend is running.`);
+    }
 
     if (!resp.ok || data.status === "rejected") {
-      const reason = data.domain_verification?.reason || data.error || "Document is not related to Nuclear Law.";
-      const topic = data.domain_verification?.detected_topic || "Non-nuclear content";
+      const reason = data.domain_verification?.reason || data.error || data.detail || `Server returned error (${resp.status})`;
+      const topic = data.domain_verification?.detected_topic || "Rejection";
       showUploadStatus(
         "error",
         "❌ Document Rejected",
-        `<strong>Detected Topic:</strong> ${topic}<br><strong>Reason:</strong> ${reason}`
+        `<strong>Status:</strong> ${topic}<br><strong>Reason:</strong> ${reason}`
       );
       return;
     }
