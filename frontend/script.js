@@ -1,5 +1,7 @@
-// API Base URL: auto-detects current host (FastAPI server) or falls back to localhost:8000
-const API_BASE = "https://nuclear-rag-worker.mai244040.workers.dev/";
+// API Base URL: routes to the backend worker nuclear-rag-api or localhost
+const API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ? "http://localhost:8000"
+  : "https://nuclear-rag-api.mai244040.workers.dev";
 
 // Workspace Management
 let currentWorkspace = localStorage.getItem("nuclear_rag_workspace") || "default";

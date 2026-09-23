@@ -1,7 +1,23 @@
-import knowledgeBase from "./knowledge_base.json";
-
 // In-memory workspace storage for Cloudflare Worker instance
 const memoryWorkspaces = new Map();
+
+// Base Handbook dynamically fetched from GitHub and cached
+let cachedBaseHandbook = null;
+async function getBaseHandbook() {
+  if (cachedBaseHandbook && cachedBaseHandbook.length > 0) {
+    return cachedBaseHandbook;
+  }
+  try {
+    const res = await fetch("https://raw.githubusercontent.com/maibeltagy/nuclear/main/knowledge_base.json");
+    if (res.ok) {
+      cachedBaseHandbook = await res.json();
+      return cachedBaseHandbook;
+    }
+  } catch (err) {
+    console.warn("Could not load remote handbook:", err);
+  }
+  return [];
+}
 
 // Common stop words to filter out during keyword scoring
 const STOP_WORDS = new Set([
@@ -47,7 +63,7 @@ function searchChunks(query, chunksList, topK = 4) {
   }
 
   const scored = chunksList.map(chunk => {
-    const textLower = chunk.text.toLowerCase();
+    const textLower = (chunk.text || "").toLowerCase();
     let score = 0;
     for (const token of queryTokens) {
       const regex = new RegExp("\\b" + token + "\\b", "gi");
@@ -107,10 +123,8 @@ export default {
           }
           filename = file.name || "document.pdf";
           
-          // Read binary text stream from file (rough ASCII/text extraction in Worker V8)
           const buffer = await file.arrayBuffer();
           const bytes = new Uint8Array(buffer);
-          // Extract readable text chunks from raw PDF bytes
           let str = "";
           for (let i = 0; i < Math.min(bytes.length, 50000); i++) {
             if (bytes[i] >= 32 && bytes[i] <= 126) {
@@ -157,7 +171,6 @@ export default {
         // Verified! Store document in workspace
         const wsData = memoryWorkspaces.get(wsId) || { documents: [], chunks: [] };
         
-        // Split sample into simple chunks
         const newChunks = [];
         const words = textSample.split(" ");
         for (let i = 0; i < words.length; i += 120) {
@@ -229,11 +242,12 @@ export default {
           return new Response(JSON.stringify({ error: "Empty question provided." }), { status: 400, headers: corsHeaders });
         }
 
-        // Combine user workspace chunks with baseline handbook
+        // Combine user workspace chunks with baseline handbook fetched from GitHub
         const wsData = memoryWorkspaces.get(wsId) || { documents: [], chunks: [] };
         let allChunks = [...wsData.chunks];
         if (includeBase) {
-          allChunks.push(...knowledgeBase);
+          const baseHandbook = await getBaseHandbook();
+          allChunks.push(...baseHandbook);
         }
 
         const retrieved = searchChunks(question, allChunks, 4);
@@ -263,7 +277,7 @@ Rules:
 3. If the context does not contain enough information, state: "The provided documents do not contain this information."
 4. Be concise and precise.`;
 
-        const userPrompt = `Context:\n${contextStr}\n\nQuestion: {question}\n\nAnswer:`;
+        const userPrompt = `Context:\n${contextStr}\n\nQuestion: ${question}\n\nAnswer:`;
 
         let answer = "";
         const groqKey = env.GROQ_API_KEY;
