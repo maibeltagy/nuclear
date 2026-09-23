@@ -327,7 +327,7 @@ async function submitQuestion(question) {
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      throw new Error(err.detail || `Server error [${resp.status}]`);
+      throw new Error(err.error || err.detail || `Server error [${resp.status}]`);
     }
 
     const data = await resp.json();
@@ -336,7 +336,7 @@ async function submitQuestion(question) {
   } catch (err) {
     appendMessage(
       "assistant",
-      `⚠️ **Connection Error**: ${err.message}\n\nPlease ensure the backend server is running (\`python server.py\`).`
+      `⚠️ **Query Notice**: ${err.message}`
     );
   } finally {
     showLoading(false);

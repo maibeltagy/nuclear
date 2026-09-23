@@ -205,7 +205,7 @@ export default {
                 "Authorization": `Bearer ${env.GROQ_API_KEY}`
               },
               body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
+                model: "llama-3.1-8b-instant",
                 messages: [{ role: "user", content: promptText }],
                 temperature: 0.1,
                 response_format: { type: "json_object" }
@@ -380,29 +380,46 @@ Rules:
         const openRouterKey = env.OPENROUTER_API_KEY;
 
         if (groqKey) {
-          const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${groqKey}`
-            },
-            body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-              ],
-              temperature: 0.2,
-              max_tokens: 800
-            })
-          });
+          const candidateModels = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768", "llama-3.3-70b-versatile"];
+          let lastErr = "";
+          for (const modelName of candidateModels) {
+            try {
+              const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${groqKey}`
+                },
+                body: JSON.stringify({
+                  model: modelName,
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                  ],
+                  temperature: 0.2,
+                  max_tokens: 800
+                })
+              });
 
-          if (!resp.ok) {
-            const errText = await resp.text();
-            throw new Error(`Groq LLM call failed [${resp.status}]: ${errText}`);
+              if (resp.ok) {
+                const data = await resp.json();
+                const content = data.choices?.[0]?.message?.content;
+                if (content) {
+                  answer = content;
+                  break;
+                }
+              } else {
+                lastErr = await resp.text();
+              }
+            } catch (callErr) {
+              lastErr = callErr.message;
+            }
           }
-          const data = await resp.json();
-          answer = data.choices?.[0]?.message?.content || "No response.";
+
+          if (!answer) {
+            answer = `### 📋 Relevant Information (Direct Match):\n\n` +
+              retrieved.map((r, i) => `**[${i + 1}] ${r.source}**:\n${r.text}`).join("\n\n");
+          }
         } else if (openRouterKey) {
           const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -423,7 +440,8 @@ Rules:
           const data = await resp.json();
           answer = data.choices?.[0]?.message?.content || "No response.";
         } else {
-          answer = `(Note: GROQ_API_KEY is not set in Cloudflare Secrets. Retrieved ${retrieved.length} chunks from ${sources.join(', ')}).`;
+          answer = `### 📋 Retrieved Context Chunks:\n\n` +
+            retrieved.map((r, i) => `**[${i + 1}] ${r.source}**:\n${r.text}`).join("\n\n");
         }
 
         return new Response(

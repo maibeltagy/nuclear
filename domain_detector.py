@@ -111,7 +111,7 @@ Respond STRICTLY with valid JSON in this exact structure (no markdown, no extra 
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "llama-3.1-8b-instant",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.0,
                     "response_format": {"type": "json_object"}
