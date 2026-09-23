@@ -91,6 +91,19 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    // Health check & welcome route
+    if (path === "/" || path === "/api/health") {
+      return new Response(
+        JSON.stringify({
+          status: "online",
+          service: "Nuclear Law RAG Worker API",
+          version: "1.0",
+          endpoints: ["/api/workspaces/:id/documents", "/api/workspaces/:id/upload", "/chat"]
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
     try {
       // 2. Route: GET /api/workspaces/:id/documents
       const docMatch = path.match(/^\/api\/workspaces\/([^\/]+)\/documents$/);
