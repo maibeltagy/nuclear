@@ -172,6 +172,40 @@ fileInput.addEventListener("change", () => {
   }
 });
 
+// Extract text from PDF in browser using PDF.js (handles compressed streams, Arabic and English)
+async function extractPdfTextInBrowser(file) {
+  try {
+    if (typeof pdfjsLib === "undefined") {
+      console.warn("PDF.js not loaded, uploading raw file.");
+      return { text: "", pages: 1 };
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+    const maxPages = Math.min(numPages, 40);
+    let allText = [];
+
+    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageStrings = textContent.items.map(item => item.str).filter(s => s && s.trim());
+        if (pageStrings.length > 0) {
+          allText.push(`--- Page ${pageNum} ---\n` + pageStrings.join(" "));
+        }
+      } catch (pageErr) {
+        console.warn(`Error reading page ${pageNum}:`, pageErr);
+      }
+    }
+    return { text: allText.join("\n\n"), pages: numPages };
+  } catch (err) {
+    console.warn("Client-side PDF extraction error:", err);
+    return { text: "", pages: 1 };
+  }
+}
+
 async function handleFileUpload(file) {
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     showUploadStatus("error", "Invalid File", "Only PDF documents are supported.");
@@ -180,8 +214,18 @@ async function handleFileUpload(file) {
 
   showUploadStatus("verifying", "Scanning & Verifying...", `Analyzing '${file.name}' for Nuclear Law and Radiation Safety domain...`);
 
+  // Extract clean text in browser first (bypasses PDF compression and supports Arabic & English)
+  let extractedInfo = { text: "", pages: 1 };
+  try {
+    extractedInfo = await extractPdfTextInBrowser(file);
+  } catch (e) {
+    console.warn("Extraction fallback:", e);
+  }
+
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("extracted_text", extractedInfo.text || "");
+  formData.append("pages_count", String(extractedInfo.pages || 1));
 
   try {
     const resp = await fetch(`${API_BASE}/api/workspaces/${currentWorkspace}/upload`, {

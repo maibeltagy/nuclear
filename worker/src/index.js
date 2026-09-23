@@ -36,11 +36,20 @@ const STOP_WORDS = new Set([
   "while", "who", "whom", "why", "with", "would", "you", "your", "yours"
 ]);
 
-// Core Nuclear keywords for domain verification
+// Core Nuclear keywords for domain verification (English + Arabic)
 const NUCLEAR_KEYWORDS = [
-  "nuclear", "atomic", "radiation", "radioactive", "fission", "reactor",
-  "uranium", "plutonium", "regulatory body", "safeguards", "iaea",
-  "licensing", "non-proliferation", "waste", "spent fuel", "dosimetry"
+  // English terms
+  "nuclear", "atomic", "radiation", "radioactive", "fission", "fusion", "reactor",
+  "uranium", "plutonium", "thorium", "regulatory body", "safeguards", "iaea", "euratom",
+  "licensing", "non-proliferation", "radioactive waste", "waste", "spent fuel",
+  "dosimetry", "radiological", "neutron", "radiological protection", "nuclear law",
+  "nuclear safety", "nuclear security", "radioisotope", "criticality",
+  // Arabic terms
+  "نووي", "نووية", "إشعاع", "إشعاعي", "إشعاعية", "مشع", "مشعة", "مفاعل", "مفاعلات",
+  "يورانيوم", "بلوتونيوم", "طاقة ذرية", "ذرية", "ذري", "الرقابة النووية", "أمان نووي",
+  "أمن نووي", "وقاية إشعاعية", "الوقاية من الإشعاع", "نفايات مشعة", "وقود نووي",
+  "الوقود المستهلك", "حظر الانتشار", "الضمانات", "وكالة الطاقة الذرية", "انشطار",
+  "اندماج", "ترخيص نووي", "قانون نووي", "حوادث نووية", "جرعة إشعاعية", "هيئة الرقابة"
 ];
 
 // CORS headers
@@ -66,7 +75,7 @@ function searchChunks(query, chunksList, topK = 4) {
     const textLower = (chunk.text || "").toLowerCase();
     let score = 0;
     for (const token of queryTokens) {
-      const regex = new RegExp("\\b" + token + "\\b", "gi");
+      const regex = new RegExp(token, "gi");
       const matches = textLower.match(regex);
       if (matches) {
         score += matches.length * 2.0;
@@ -126,88 +135,162 @@ export default {
         const wsId = uploadMatch[1];
         let filename = "uploaded_document.pdf";
         let textSample = "";
+        let reportedPages = 1;
 
         const contentType = request.headers.get("content-type") || "";
         if (contentType.includes("multipart/form-data")) {
           const formData = await request.formData();
           const file = formData.get("file");
-          if (!file) {
-            return new Response(JSON.stringify({ error: "No file uploaded." }), { status: 400, headers: corsHeaders });
+          const clientText = formData.get("extracted_text");
+          const clientPages = formData.get("pages_count");
+
+          if (!file && !clientText) {
+            return new Response(JSON.stringify({ error: "No file or text uploaded." }), { status: 400, headers: corsHeaders });
           }
-          filename = file.name || "document.pdf";
-          
-          const buffer = await file.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-          let str = "";
-          for (let i = 0; i < Math.min(bytes.length, 50000); i++) {
-            if (bytes[i] >= 32 && bytes[i] <= 126) {
-              str += String.fromCharCode(bytes[i]);
-            } else if (bytes[i] === 10 || bytes[i] === 13) {
-              str += " ";
+
+          filename = (file && file.name) ? file.name : "document.pdf";
+          if (clientPages) {
+            reportedPages = Math.max(1, parseInt(clientPages, 10) || 1);
+          }
+
+          if (clientText && clientText.trim().length > 30) {
+            textSample = clientText.trim();
+          } else if (file) {
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            let str = "";
+            for (let i = 0; i < Math.min(bytes.length, 100000); i++) {
+              if (bytes[i] >= 32 && bytes[i] <= 126) {
+                str += String.fromCharCode(bytes[i]);
+              } else if (bytes[i] === 10 || bytes[i] === 13) {
+                str += " ";
+              }
             }
+            textSample = str.replace(/\s+/g, " ");
           }
-          textSample = str.replace(/\s+/g, " ");
         } else {
           const jsonBody = await request.json().catch(() => ({}));
           filename = jsonBody.filename || "document.pdf";
           textSample = jsonBody.text || "";
+          reportedPages = jsonBody.pages || 1;
         }
 
-        // Domain Detection Heuristic
-        const sampleLower = textSample.toLowerCase();
+        // Domain Detection: Check text AND filename against Nuclear keywords
+        const scanTarget = (filename + " " + textSample).toLowerCase();
         let matchCount = 0;
         const matched = [];
         for (const kw of NUCLEAR_KEYWORDS) {
-          if (sampleLower.includes(kw)) {
+          if (scanTarget.includes(kw.toLowerCase())) {
             matchCount++;
             matched.push(kw);
           }
         }
 
-        const isNuclear = matchCount >= 2;
+        let isNuclear = matchCount >= 1; // 1 or more distinct nuclear terms
+        let detectedTopic = isNuclear 
+          ? `Nuclear regulation (${matched.slice(0, 3).join(", ")})` 
+          : "Non-nuclear topic";
+        let reason = isNuclear
+          ? `Verified nuclear keywords found (${matched.slice(0, 4).join(", ")})`
+          : "Document contains insufficient nuclear or radiation safety terminology.";
+
+        // If not verified yet by keywords, but text is available and Groq key exists, ask Groq LLM
+        if (!isNuclear && env.GROQ_API_KEY && textSample.length > 40) {
+          try {
+            const promptText = `Analyze if this document belongs to Nuclear Law, Nuclear Energy/Technology, Nuclear Safety, or Radiation Protection regulation.\nDocument excerpt:\n"""${textSample.slice(0, 2500)}"""\n\nRespond ONLY with a JSON object: {"is_nuclear": true or false, "topic": "concise topic", "reason": "concise reason"}`;
+            const gResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${env.GROQ_API_KEY}`
+              },
+              body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: promptText }],
+                temperature: 0.1,
+                response_format: { type: "json_object" }
+              })
+            });
+            if (gResp.ok) {
+              const gData = await gResp.json();
+              const parsed = JSON.parse(gData.choices?.[0]?.message?.content || "{}");
+              if (parsed.is_nuclear === true) {
+                isNuclear = true;
+                detectedTopic = parsed.topic || "Nuclear regulation";
+                reason = parsed.reason || "Semantic AI verification confirmed nuclear domain.";
+              }
+            }
+          } catch (llmErr) {
+            console.warn("Groq domain check error:", llmErr);
+          }
+        }
+
         if (!isNuclear) {
           return new Response(
             JSON.stringify({
               status: "rejected",
-              error: "Document rejected: Not in Nuclear Law domain. (Insufficient nuclear regulatory terminology detected).",
+              error: `Document rejected: Not in Nuclear Law domain. ${reason}`,
               domain_verification: {
                 is_nuclear: false,
                 confidence: 0.95,
-                detected_topic: "Non-nuclear topic",
-                reason: "Document contains insufficient nuclear or radiation safety terminology."
+                detected_topic: detectedTopic,
+                reason: reason
               }
             }),
             { status: 400, headers: corsHeaders }
           );
         }
 
-        // Verified! Store document in workspace
+        // Verified! Chunk the text and store in workspace
         const wsData = memoryWorkspaces.get(wsId) || { documents: [], chunks: [] };
-        
         const newChunks = [];
-        const words = textSample.split(" ");
-        for (let i = 0; i < words.length; i += 120) {
-          const chunkText = words.slice(i, i + 140).join(" ");
-          if (chunkText.length > 50) {
+
+        // If we have actual extracted text, chunk it properly
+        if (textSample && textSample.length > 50) {
+          const sentences = textSample.split(/(?<=[.!?؟\n])\s+/);
+          let currentChunk = "";
+          for (const sent of sentences) {
+            if ((currentChunk + " " + sent).length <= 700) {
+              currentChunk = (currentChunk + " " + sent).trim();
+            } else {
+              if (currentChunk.length > 40) {
+                newChunks.push({
+                  text: currentChunk,
+                  source: `${filename} (section ${newChunks.length + 1})`,
+                  chunk_id: `${filename}::${newChunks.length}`
+                });
+              }
+              currentChunk = sent.trim();
+            }
+          }
+          if (currentChunk.length > 40) {
             newChunks.push({
-              text: chunkText,
-              source: `${filename} (page ${Math.floor(i / 120) + 1})`,
+              text: currentChunk,
+              source: `${filename} (section ${newChunks.length + 1})`,
               chunk_id: `${filename}::${newChunks.length}`
             });
           }
         }
 
+        if (newChunks.length === 0) {
+          newChunks.push({
+            text: textSample.slice(0, 1000) || `Document: ${filename}`,
+            source: filename,
+            chunk_id: `${filename}::0`
+          });
+        }
+
         wsData.documents = wsData.documents.filter(d => d.filename !== filename);
         wsData.documents.push({
           filename: filename,
-          pages_count: Math.max(1, Math.floor(newChunks.length / 2)),
+          pages_count: reportedPages || Math.max(1, Math.ceil(newChunks.length / 2)),
           chunks_count: newChunks.length,
           uploaded_at: new Date().toISOString(),
           domain_verification: {
             is_nuclear: true,
-            confidence: 0.92,
-            detected_topic: `Nuclear regulation (${matched.slice(0, 3).join(", ")})`,
-            reason: `Found verified nuclear terms (${matched.slice(0, 4).join(", ")})`
+            confidence: 0.95,
+            detected_topic: detectedTopic,
+            reason: reason
           }
         });
 
@@ -218,13 +301,13 @@ export default {
         return new Response(
           JSON.stringify({
             status: "approved",
-            message: `Document '${filename}' verified and indexed.`,
-            pages: Math.max(1, Math.floor(newChunks.length / 2)),
+            message: `Document '${filename}' verified and indexed in workspace '${wsId}'.`,
+            pages: reportedPages || Math.max(1, Math.ceil(newChunks.length / 2)),
             chunks: newChunks.length,
             domain_verification: {
               is_nuclear: true,
-              confidence: 0.92,
-              detected_topic: `Nuclear regulation (${matched.slice(0, 3).join(", ")})`
+              confidence: 0.95,
+              detected_topic: detectedTopic
             }
           }),
           { status: 200, headers: corsHeaders }
@@ -295,7 +378,6 @@ Rules:
         let answer = "";
         const groqKey = env.GROQ_API_KEY;
         const openRouterKey = env.OPENROUTER_API_KEY;
-        const cohereKey = env.COHERE_API_KEY;
 
         if (groqKey) {
           const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {

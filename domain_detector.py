@@ -3,19 +3,28 @@ import re
 import json
 import requests
 
-# Core domain keyword categories for heuristic scoring
+# Core domain keyword categories for heuristic scoring (English & Arabic)
 NUCLEAR_KEYWORDS = {
     "core_terms": [
         "nuclear", "atomic", "radiation", "radioactive", "fission", "fusion",
         "isotope", "enrichment", "reactor", "uranium", "plutonium", "thorium",
-        "criticality", "fuel cycle", "neutron"
+        "criticality", "fuel cycle", "neutron",
+        # Arabic core terms
+        "نووي", "نووية", "إشعاع", "إشعاعي", "إشعاعية", "مشع", "مشعة",
+        "مفاعل", "مفاعلات", "يورانيوم", "بلوتونيوم", "طاقة ذرية", "ذرية",
+        "ذري", "انشطار", "اندماج", "نظائر", "تخصيب"
     ],
     "regulatory_legal": [
         "nuclear law", "regulatory body", "safeguards", "non-proliferation",
         "licensing", "permission principle", "authorization", "iaea", "euratom",
         "nuclear safety", "nuclear security", "civil liability", "convention",
         "treaty", "decommissioning", "radioactive waste", "spent fuel",
-        "code of conduct", "dosimetry", "radiological protection", "transport of radioactive material"
+        "code of conduct", "dosimetry", "radiological protection", "transport of radioactive material",
+        # Arabic regulatory terms
+        "قانون نووي", "الرقابة النووية", "هيئة الرقابة", "أمان نووي", "أمن نووي",
+        "حظر الانتشار", "الضمانات", "وكالة الطاقة الذرية", "نفايات مشعة",
+        "وقاية إشعاعية", "الوقاية من الإشعاع", "الوقود المستهلك", "ترخيص نووي", "تراخيص",
+        "أمان المنشآت النووية", "جرعة إشعاعية"
     ]
 }
 
@@ -26,16 +35,21 @@ def calculate_heuristic_score(text: str) -> dict:
     
     for category, words in NUCLEAR_KEYWORDS.items():
         for word in words:
-            pattern = r'\b' + re.escape(word) + r'\b'
-            count = len(re.findall(pattern, text_lower))
+            # For ASCII words use word boundaries; for Arabic substrings check membership
+            if all(ord(c) < 128 for c in word):
+                pattern = r'\b' + re.escape(word) + r'\b'
+                count = len(re.findall(pattern, text_lower))
+            else:
+                count = text_lower.count(word)
+                
             if count > 0:
                 matches.append((word, count))
                 
     total_occurrences = sum(count for _, count in matches)
     unique_terms = len(matches)
     
-    # Simple heuristic threshold: at least 3 unique terms or 6 total occurrences
-    is_likely_nuclear = unique_terms >= 3 or total_occurrences >= 6
+    # Heuristic threshold: at least 2 unique terms or 4 total occurrences
+    is_likely_nuclear = unique_terms >= 2 or total_occurrences >= 4
     return {
         "is_likely_nuclear": is_likely_nuclear,
         "unique_terms": unique_terms,
