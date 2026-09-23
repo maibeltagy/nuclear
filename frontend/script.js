@@ -1,5 +1,5 @@
 // API Base URL: auto-detects current host (FastAPI server) or falls back to localhost:8000
-const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
+const API_BASE = "https://nuclear-rag-worker.mai244040.workers.dev/";
 
 // Workspace Management
 let currentWorkspace = localStorage.getItem("nuclear_rag_workspace") || "default";
