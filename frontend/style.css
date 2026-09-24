@@ -1,19 +1,20 @@
-/* Theme Variables: Orange Edition */
+/* Theme Variables: Nuclear Law & Safety Edition (IAEA Cobalt & Deep Ocean) */
 :root {
-  --primary-color: #ff6b35;
-  --primary-hover: #fa5a1e;
-  --primary-light: #fff0eb;
-  --primary-glow: rgba(255, 107, 53, 0.25);
+  --primary-color: #0284c7;        /* IAEA Cobalt Blue */
+  --primary-hover: #0369a1;        /* Deep Nuclear Blue */
+  --primary-light: #e0f2fe;        /* Soft Ice Blue */
+  --primary-glow: rgba(2, 132, 199, 0.22);
   
-  --success-color: #10b981;
+  --accent-cyan: #06b6d4;          /* Radiation Safety Cyan */
+  --success-color: #059669;        /* Verified Emerald Green */
   --success-light: #ecfdf5;
-  --error-color: #ef4444;
-  --error-light: #fef2f2;
+  --error-color: #e11d48;
+  --error-light: #fff1f2;
   
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
   --bg-sidebar: #f1f5f9;
-  --bg-bubble-user: #ff6b35;
+  --bg-bubble-user: #0369a1;       /* Prestigious Deep Blue */
   --bg-bubble-bot: #ffffff;
   --bg-input: #ffffff;
   
@@ -22,7 +23,7 @@
   --text-bubble-user: #ffffff;
   --text-bubble-bot: #1e293b;
   
-  --border-color: #e2e8f0;
+  --border-color: #cbd5e1;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -30,22 +31,23 @@
 }
 
 [data-theme="dark"] {
-  --primary-color: #ff7849;
-  --primary-hover: #ff8c61;
-  --primary-light: #2a1b15;
-  --primary-glow: rgba(255, 120, 73, 0.3);
+  --primary-color: #38bdf8;        /* Vivid Atomic Cyan/Blue */
+  --primary-hover: #7dd3fc;
+  --primary-light: #082f49;
+  --primary-glow: rgba(56, 189, 248, 0.28);
   
-  --success-color: #34d399;
+  --accent-cyan: #22d3ee;
+  --success-color: #10b981;
   --success-light: #064e3b;
-  --error-color: #f87171;
-  --error-light: #450a0a;
+  --error-color: #f43f5e;
+  --error-light: #4c0519;
   
-  --bg-main: #0b0f19;
-  --bg-card: #151c2c;
-  --bg-sidebar: #0f1422;
-  --bg-bubble-user: #e65620;
-  --bg-bubble-bot: #182236;
-  --bg-input: #151c2c;
+  --bg-main: #0a0f1d;             /* Cosmic Nuclear Navy */
+  --bg-card: #111827;
+  --bg-sidebar: #0d1527;
+  --bg-bubble-user: #0284c7;       /* Glowing Cyan/Blue */
+  --bg-bubble-bot: #162033;
+  --bg-input: #111827;
   
   --text-main: #f8fafc;
   --text-muted: #94a3b8;

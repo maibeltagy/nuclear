@@ -107,7 +107,33 @@ export default {
           status: "online",
           service: "Nuclear Law RAG Worker API",
           version: "1.0",
-          endpoints: ["/api/workspaces/:id/documents", "/api/workspaces/:id/upload", "/chat"]
+          endpoints: ["/api/workspaces/:id/documents", "/api/workspaces/:id/upload", "/chat", "/api/debug"]
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+
+    // Diagnostic route to check Groq connection and available models
+    if (path === "/api/debug") {
+      let groqStatus = "no_key";
+      let modelsList = [];
+      if (env.GROQ_API_KEY) {
+        try {
+          const mResp = await fetch("https://api.groq.com/openai/v1/models", {
+            headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}` }
+          });
+          groqStatus = `http_${mResp.status}`;
+          const mData = await mResp.json();
+          modelsList = mData.data ? mData.data.map(m => m.id) : mData;
+        } catch (e) {
+          groqStatus = `err_${e.message}`;
+        }
+      }
+      return new Response(
+        JSON.stringify({
+          groq_key_set: !!env.GROQ_API_KEY,
+          groq_status: groqStatus,
+          models: modelsList
         }),
         { status: 200, headers: corsHeaders }
       );
@@ -376,11 +402,18 @@ Rules:
         const userPrompt = `Context:\n${contextStr}\n\nQuestion: ${question}\n\nAnswer:`;
 
         let answer = "";
-        const groqKey = env.GROQ_API_KEY;
-        const openRouterKey = env.OPENROUTER_API_KEY;
+        const groqKey = env.GROQ_API_KEY ? env.GROQ_API_KEY.trim() : "";
+        const openRouterKey = env.OPENROUTER_API_KEY ? env.OPENROUTER_API_KEY.trim() : "";
 
         if (groqKey) {
-          const candidateModels = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768", "llama-3.3-70b-versatile"];
+          const candidateModels = [
+            "llama-3.1-8b-instant",
+            "llama-3.2-3b-preview",
+            "llama-3.2-1b-preview",
+            "gemma2-9b-it",
+            "llama-3.3-70b-versatile",
+            "mixtral-8x7b-32768"
+          ];
           let lastErr = "";
           for (const modelName of candidateModels) {
             try {
@@ -418,7 +451,8 @@ Rules:
 
           if (!answer) {
             answer = `### 📋 Relevant Information (Direct Match):\n\n` +
-              retrieved.map((r, i) => `**[${i + 1}] ${r.source}**:\n${r.text}`).join("\n\n");
+              retrieved.map((r, i) => `**[${i + 1}] ${r.source}**:\n${r.text}`).join("\n\n") +
+              (lastErr ? `\n\n*(LLM Notice: ${lastErr})*` : "");
           }
         } else if (openRouterKey) {
           const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
