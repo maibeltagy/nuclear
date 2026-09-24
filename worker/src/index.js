@@ -231,7 +231,7 @@ export default {
                 "Authorization": `Bearer ${env.GROQ_API_KEY}`
               },
               body: JSON.stringify({
-                model: "llama-3.1-8b-instant",
+                model: "openai/gpt-oss-20b",
                 messages: [{ role: "user", content: promptText }],
                 temperature: 0.1,
                 response_format: { type: "json_object" }
@@ -407,12 +407,10 @@ Rules:
 
         if (groqKey) {
           const candidateModels = [
-            "llama-3.1-8b-instant",
-            "llama-3.2-3b-preview",
-            "llama-3.2-1b-preview",
-            "gemma2-9b-it",
-            "llama-3.3-70b-versatile",
-            "mixtral-8x7b-32768"
+            "openai/gpt-oss-20b",
+            "openai/gpt-oss-120b",
+            "qwen/qwen3.8-27b",
+            "allam-2-7b"
           ];
           let lastErr = "";
           for (const modelName of candidateModels) {

@@ -44,7 +44,7 @@ def call_llm(messages, temperature=0.2, max_tokens=800):
     if groq_key:
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
-        model = "llama-3.1-8b-instant"
+        model = "openai/gpt-oss-20b"
     elif openrouter_key:
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {openrouter_key}"}
